@@ -6,8 +6,10 @@ from scrapy.crawler import CrawlerProcess
 
 from pymongo import MongoClient
 
+
 client = MongoClient("mongodb+srv://Cadejo:0aGnluXd4Y56CviJ@homework08.lgshiv5.mongodb.net/?retryWrites=true&w=majority")
 db = client["HomeWork09"]
+
 
 class QuoteItem(Item):
     author = Field()
@@ -47,23 +49,10 @@ class AuthorQuotSpiderPipline(object):
 
     def close_spider(self, spider):
         with open('quotes.json', 'w', encoding='utf-8') as fd:
-            json.dump(self.quotes, fd, ensure_ascii=False)
+            json.dump(self.quotes, fd, ensure_ascii=False, indent=4)
 
         with open('authors.json', 'w', encoding='utf-8') as fd:
-            json.dump(self.authors, fd, ensure_ascii=False)
-
-
-def load_authors():
-    with open('authors.json', 'r') as file:
-        authors_data = json.load(file)
-        author_collection = db["authors"]
-        author_collection.insert_many(authors_data)
-
-def load_quotes():
-    with open('quotes.json', 'r') as file:
-        quotes_data = json.load(file)
-        quote_collection = db["quotes"]
-        quote_collection.insert_many(quotes_data)
+            json.dump(self.authors, fd, ensure_ascii=False, indent=4)
 
 
 class AuthorQuotSpider(scrapy.Spider):
@@ -82,13 +71,12 @@ class AuthorQuotSpider(scrapy.Spider):
             author = q.xpath('span/small[@class="author"]/text()').get().strip()
             tags = q.xpath('div[@class="tags"]/a[@class="tag"]/text()').extract()
             yield QuoteItem(quote=quote, author=author, tags=tags)
-
-        # for ath in response.xpath('/html//div[@class="quote"]'):
+            
             yield response.follow(url=self.start_urls[0] + q.xpath('span/a/@href').get(), callback=self.parse_author)
-        
-        next_link = response.xpath('html//li[@class="next"]/a/@href').get()
-        if next_link:
-            yield scrapy.Request(url=self.start_urls[0] + next_link)
+
+        next_page = response.xpath('//li[@class="next"]/a/@href').get()
+        if next_page:
+            yield response.follow(url=self.start_urls[0] + next_page, callback=self.parse)
 
     def parse_author(self, response):
         body = response.xpath('/html//div[@class="author-details"]') 
@@ -103,5 +91,3 @@ if __name__ == '__main__':
     process = CrawlerProcess()
     process.crawl(AuthorQuotSpider)
     process.start()
-    load_authors()
-    load_quotes()
